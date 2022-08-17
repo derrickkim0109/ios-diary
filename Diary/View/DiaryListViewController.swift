@@ -15,6 +15,10 @@ final class DiaryListViewController: UIViewController {
     
     private var dataSource: UITableViewDiffableDataSource<Section, DiaryContent>?
     
+    private var contents = [DiaryContent]()
+    
+    private var changedRow = 0
+    
     private let diaryListTableView: UITableView = {
         let tableView = UITableView()
         tableView.register(DiaryTableViewCell.self, forCellReuseIdentifier: DiaryTableViewCell.identifier)
@@ -44,10 +48,10 @@ final class DiaryListViewController: UIViewController {
             guard let cell = tableView.dequeueReusableCell(withIdentifier: DiaryTableViewCell.identifier, for: indexPath) as? DiaryTableViewCell else {
                 return UITableViewCell()
             }
-
+            
             cell.configureUI(data: content)
             cell.accessoryType = .disclosureIndicator
-
+            
             return cell
         })
     }
@@ -58,7 +62,8 @@ final class DiaryListViewController: UIViewController {
         
         switch result {
         case .success(let contents):
-            updateDataSource(data: contents)
+            self.contents = contents
+            updateDataSource(data: self.contents)
         case .failure(_):
             break
         default:
@@ -67,12 +72,12 @@ final class DiaryListViewController: UIViewController {
     }
     
     private func updateDataSource(data: [DiaryContent]) {
-            var snapshot = NSDiffableDataSourceSnapshot<Section, DiaryContent>()
-            snapshot.appendSections([.main])
-            snapshot.appendItems(data)
-
-            dataSource?.apply(snapshot)
-        }
+        var snapshot = NSDiffableDataSourceSnapshot<Section, DiaryContent>()
+        snapshot.appendSections([.main])
+        snapshot.appendItems(contents)
+        
+        dataSource?.apply(snapshot)
+    }
     
     private func configureLayout() {
         NSLayoutConstraint.activate([
@@ -92,10 +97,24 @@ final class DiaryListViewController: UIViewController {
 
 // MARK: TableVeiwDelegate
 
-extension DiaryListViewController: UITableViewDelegate {
+extension DiaryListViewController: UITableViewDelegate, ContentTextViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let diaryContentViewController = DiaryContentViewController()
-        
+        diaryContentViewController.content = contents[indexPath.row]
+        diaryContentViewController.delegate = self
+        changedRow = indexPath.row
         self.navigationController?.pushViewController(diaryContentViewController, animated: true)
+    }
+    
+    func contentTextViewDidChange(data: String, date: Double) {
+        let array = data.split(separator: "\n", maxSplits: 2)
+        let newTitle = String(array[0])
+        let newBody = String(array[1])
+        
+        contents[changedRow].title = newTitle
+        contents[changedRow].body = newBody
+        
+        updateDataSource(data: self.contents)
+        diaryListTableView.reloadData()
     }
 }
